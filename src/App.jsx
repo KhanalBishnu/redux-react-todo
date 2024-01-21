@@ -17,9 +17,7 @@ function App() {
         <div className="col-md-8 border border-secondary rounded p-4 my-2">
           <AddTodo />
           {todos.map((todo) => (
-            <div className="d-flex py-2 px-2  rounded-2" key={todo.id}>
-              <Todo todo={todo} />
-            </div>
+              <Todo todo={todo} key={todo.id} />
           ))}
         </div>
       </div>

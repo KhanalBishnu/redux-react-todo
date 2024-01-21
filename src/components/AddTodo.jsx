@@ -11,6 +11,7 @@ function AddTodo() {
             setisEmpty(true)
             return
         }
+        setisEmpty(false)
         dispatch(addTodo(todo))
         setTodo('')
         e.target.reset()

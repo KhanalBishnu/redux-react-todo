@@ -1,26 +1,31 @@
-import React from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { removeTodo } from "../features/todo/TodoSlice";
+import React, { useState } from "react";
+import { useDispatch } from "react-redux";
+import { removeTodo,updateTodo } from "../features/todo/TodoSlice";
 
-function Todo() {
-  const todos = useSelector((state) => state.todos);
+function Todo({todo}) {
   const dispatch = useDispatch();
+  const [input,setInput]=useState(todo.text)
+  const [textEditable,setTextEditable]=useState(false)
+  const editTodo=()=>{
+    dispatch(updateTodo(todo.id,input))
+    setTextEditable(false)
+    console.log(todo);
+  }
   return (
     <>
-      {todos.map((todo) => (
-        <div
-          className={`d-flex py-2 px-2 gap-3 rounded-2 `} key={todo.id}
-        >
+      
           <input
             type="text"
-            className={`form-control `}
-            value={todo.text}
-            readOnly
+            className="form-control"
+            value={input}
+            onChange={(e)=>setInput(e.target.value)}
+            readOnly={!textEditable}
           />
+          <button className="btn btn-danger btn-sm" 
+          onClick={textEditable ? editTodo:()=>setTextEditable(true) }>{textEditable?'Update':'Edit'}</button>
           <button className="btn btn-danger btn-sm "
           onClick={()=>dispatch(removeTodo(todo.id))}>Delete</button>
-        </div>
-      ))}
+          
     </>
   );
 }

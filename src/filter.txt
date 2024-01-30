@@ -1,35 +1,58 @@
-public function reportGenerate(Request $request){
+public function reportGenerate(Request $request)
+{
     try {
         $data = $request->all();
-        
-        $tasksIds = [];
-        if (array_key_exists('project', $data)) {
-            $project = StatusSetting::with('leadSettings')->findOrFail($data['project']);
-            if ($project) {
-                $tasksIds = $project->leadSettings->pluck('tasks.*.id')->flatten()->toArray();
-            }
+
+        $tasks = [];
+        $results = collect();
+
+        if (array_key_exists('project', $data) && $data['project'] != null) {
+            $project = StatusSetting::with('leadSettings.tasks')->findOrFail($data['project']);
+            $tasksIds = $project->leadSettings->pluck('tasks.*.id')->flatten();
         }
 
-        $fromDate = $data['from_date'] ?? null;
-        $toDate = $data['to_date'] ?? null;
+        $date = $data['time'] == 'today' ? Carbon::today()->format('Y-m-d') : Carbon::yesterday()->format('Y-m-d');
 
-        $results = UserTaskLogTime::when($data['asignee'] !== null, function ($q) use ($data) {
+        if ($data['asignee'] != null || $data['project'] != null) {
+            $results = UserTaskLogTime::when($data['asignee'] != null, function ($q) use ($data) {
                 return $q->where('user_id', $data['asignee']);
             })
-            ->when($fromDate !== null && $toDate !== null, function ($q) use ($fromDate, $toDate) {
-                return $q->whereBetween('created_at', [$fromDate, $toDate]);
+            ->when($data['time'] != null, function ($q) use ($date) {
+                return $q->whereDate('created_at', $date);
             })
-            ->when($data['project'] !== null, function ($q) use ($data) {
-                return $q->where('parent_task_id', $data['project']);
-            })
-            ->when($data['project'] === null, function ($q) use ($tasksIds) {
+            ->when($data['project'] != null, function ($q) use ($tasksIds) {
                 return $q->whereIn('parent_task_id', $tasksIds);
             })
             ->get();
 
+            if ($results->isNotEmpty()) {
+                $uniqueTask = $results->pluck('parent_task_id')->unique();
+
+                foreach ($uniqueTask as $newid) {
+                    $total_time_log = UserTaskLogTime::where('parent_task_id', $newid)
+                        ->whereDate('created_at', $date)
+                        ->when($data['asignee'] != null, function ($q) use ($data) {
+                            return $q->where('user_id', $data['asignee']);
+                        })
+                        ->sum('log_time');
+
+                    $task = Task::findOrFail($newid);
+                    $task['total_time_log'] = $total_time_log;
+                    $task['subTasks'] = UserTaskLogTime::where('parent_task_id', $newid)
+                        ->when($data['asignee'] != null, function ($q) use ($data) {
+                            return $q->where('user_id', $data['asignee']);
+                        })
+                        ->whereDate('created_at', $date)
+                        ->get();
+
+                    $tasks[] = $task;
+                }
+            }
+        }
+
         return response()->json([
             'response' => true,
-            'page' => view('backend.project_report.components.reportDataTable', compact('results'))->render(),
+            'page' => view('backend.project_report.components.reportDataTable', compact('results', 'tasks'))->render(),
         ]);
     } catch (\Throwable $th) {
         return response()->json([
@@ -42,121 +65,13 @@ public function reportGenerate(Request $request){
 
 
 
-export
 
-
-php artisan make:export YourExport
-
-
-
- // Render the view
-            $view = view('backend.project_report.components.reportDataTable', compact('results'));
-
-            // Export to Excel
-            return Excel::download(new YourExport($view), 'your_export_file.xlsx');
-
-
-
-
-
-@if(count($results) > 0)
-    <div class="mt-3">
-        <button class="btn btn-success" onclick="exportToExcel()">Export to Excel</button>
-    </div>
-@endif
-
-in export php
-
- protected $view;
-
-    public function __construct(View $view)
-    {
-        $this->view = $view;
-    }
-
-    public function toResponse($request)
-    {
-        return $this->view;
-    }
-
-
-
-
-  public function exportToExcel()
-    {
-        // Add logic for exporting to Excel
-        // This function is separate from the main data retrieval to allow
-        // the export to be triggered independently from the data rendering.
-
-        $data = $request->all();
-
-        $tasksIds = [];
-        // ... (previous code to get $tasksIds remains unchanged)
 
         $fromDate = $data['from_date'] ?? null;
         $toDate = $data['to_date'] ?? null;
 
-        $results = UserTaskLogTime::when($data['asignee'] !== null, function ($q) use ($data) {
-                return $q->where('user_id', $data['asignee']);
-            })
-            ->when($fromDate !== null && $toDate !== null, function ($q) use ($fromDate, $toDate) {
+
+
+ ->when($fromDate !== null && $toDate !== null, function ($q) use ($fromDate, $toDate) {
                 return $q->whereBetween('created_at', [$fromDate, $toDate]);
             })
-            ->when($data['project'] !== null, function ($q) use ($data) {
-                return $q->where('parent_task_id', $data['project']);
-            })
-            ->when($data['project'] === null, function ($q) use ($tasksIds) {
-                return $q->whereIn('parent_task_id', $tasksIds);
-            })
-            ->get();
-
-        // Render the view
-        $view = view('backend.project_report.components.reportDataTable', compact('results'));
-
-        // Export to Excel
-        return Excel::download(new YourExport($view), 'your_export_file.xlsx');
-    }
-
-
-<!-- reportDataTable.blade.php -->
-<div class="table-responsive">
-    <table class="table table-bordered">
-        <!-- ... (table content remains the same) ... -->
-    </table>
-</div>
-
-@if(count($results) > 0)
-    <div class="mt-3">
-        <button class="btn btn-success" onclick="exportToExcel()">Export to Excel</button>
-    </div>
-@endif
-
-<script>
-    function exportToExcel() {
-        // Add logic here to gather necessary parameters for exporting
-        var asignee = "{{ $data['asignee'] ?? null }}";  // Assuming you have access to asignee in the blade
-        var project = "{{ $data['project'] ?? null }}";  // Assuming you have access to project in the blade
-        var fromDate = "{{ $data['from_date'] ?? null }}";  // Assuming you have access to from_date in the blade
-        var toDate = "{{ $data['to_date'] ?? null }}";  // Assuming you have access to to_date in the blade
-
-        // Make an AJAX request to the export route
-        $.ajax({
-            url: "{{ route('export.to.excel') }}",
-            type: 'GET',
-            data: {
-                asignee: asignee,
-                project: project,
-                from_date: fromDate,
-                to_date: toDate
-            },
-            success: function(response) {
-                // Handle success, you may redirect the user or show a success message
-                console.log('Export successful');
-            },
-            error: function(error) {
-                // Handle errors, you may show an error message
-                console.error('Export failed', error);
-            }
-        });
-    }
-</script>

@@ -65,6 +65,103 @@ public function reportGenerate(Request $request)
 
 
 
+with modal
+
+	public function reportGenerate(Request $request)
+{
+    try {
+        $data = $request->all();
+
+        $tasks = [];
+        $results = collect();
+
+        if (array_key_exists('project', $data) && $data['project'] != null) {
+            $project = StatusSetting::with('leadSettings.tasks')->findOrFail($data['project']);
+            $tasksIds = $project->leadSettings->pluck('tasks.*.id')->flatten();
+        }
+
+        $date = $data['time'] == 'today' ? Carbon::today()->format('Y-m-d') : Carbon::yesterday()->format('Y-m-d');
+
+        if ($data['asignee'] != null || $data['project'] != null) {
+            $results = UserTaskLogTime::getFilteredResults($data, $date, $tasksIds);
+
+            if ($results->isNotEmpty()) {
+                $uniqueTask = $results->pluck('parent_task_id')->unique();
+
+                foreach ($uniqueTask as $newid) {
+                    $total_time_log = UserTaskLogTime::getTotalLogTime($newid, $data, $date);
+                    $task = Task::findWithTotalLog($newid, $total_time_log, $data, $date);
+                    $tasks[] = $task;
+                }
+            }
+        }
+
+        return response()->json([
+            'response' => true,
+            'page' => view('backend.project_report.components.reportDataTable', compact('results', 'tasks'))->render(),
+        ]);
+    } catch (\Throwable $th) {
+        return response()->json([
+            'response' => false,
+            'message' => $th->getMessage(),
+        ]);
+    }
+}
+
+
+// UserTaskLogTime Model
+class UserTaskLogTime extends Model
+{
+    public static function getFilteredResults($data, $date, $tasksIds)
+    {
+        return self::when($data['asignee'] != null, function ($q) use ($data) {
+                return $q->where('user_id', $data['asignee']);
+            })
+            ->when($data['time'] != null, function ($q) use ($date) {
+                return $q->whereDate('created_at', $date);
+            })
+            ->when($data['project'] != null, function ($q) use ($tasksIds) {
+                return $q->whereIn('parent_task_id', $tasksIds);
+            })
+            ->get();
+    }
+
+    public static function getTotalLogTime($newid, $data, $date)
+    {
+        return self::where('parent_task_id', $newid)
+            ->whereDate('created_at', $date)
+            ->when($data['asignee'] != null, function ($q) use ($data) {
+                return $q->where('user_id', $data['asignee']);
+            })
+            ->sum('log_time');
+    }
+}
+
+// Task Model
+class Task extends Model
+{
+    public static function findWithTotalLog($newid, $total_time_log, $data, $date)
+    {
+        $task = self::findOrFail($newid);
+        $task['total_time_log'] = $total_time_log;
+        $task['subTasks'] = UserTaskLogTime::where('parent_task_id', $newid)
+            ->when($data['asignee'] != null, function ($q) use ($data) {
+                return $q->where('user_id', $data['asignee']);
+            })
+            ->whereDate('created_at', $date)
+            ->get();
+
+        return $task;
+    }
+}
+
+
+
+
+
+
+
+
 
 
         $fromDate = $data['from_date'] ?? null;

@@ -1,17 +1,32 @@
-  $results = Task::when($data['status_id'] != null, function ($q) use ($data) {
-                return $q->where('status_id', $data['status_id']);
-            })
-            ->whereIn('id', $tasksIds)
-            ->when($data['from_date'] != null && $data['to_date'] != null, function ($q) use ($data) {
-                return $q->whereBetween('created_at', [$data['from_date'], $data['to_date']]);
-            })
-            ->get();
+<script>
+// Target date (replace with your target date)
+const targetDate = new Date('2022-03-31');
 
-        // If asignee is provided, fetch additional data from task_users table
-        if ($data['asignee'] != null) {
-            foreach ($results as $result) {
-                $result->userTaskUserData = TaskUser::where('task_id', $result->id)
-                    ->where('user_id', $data['asignee'])
-                    ->get();
-            }
-        }
+// Function to update the countdown
+function updateCountdown() {
+  const currentDate = new Date();
+  const timeDifference = targetDate - currentDate;
+
+  if (timeDifference <= 0) {
+    // If the target date has passed, display a message
+    document.getElementById('countdown').innerHTML = targetDate;
+    document.getElementById('countdown').style.color = 'red';
+
+  } else {
+    // Calculate days, hours, minutes, and seconds
+    const days = Math.floor(timeDifference / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((timeDifference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    // const minutes = Math.floor((timeDifference % (1000 * 60 * 60)) / (1000 * 60));
+    // const seconds = Math.floor((timeDifference % (1000 * 60)) / 1000);
+
+    // Display the countdown in a human-readable format
+    document.getElementById('countdown').innerHTML = `${days} days, ${hours} hours left`;
+  }
+}
+
+// Call the updateCountdown function every second
+setInterval(updateCountdown, 600000);
+
+// Initial call to set the initial countdown
+updateCountdown();
+</script>

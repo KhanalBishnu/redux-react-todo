@@ -1,32 +1,7 @@
-<script>
-// Target date (replace with your target date)
-const targetDate = new Date('2022-03-31');
+$media = $task->addMediaFromRequest('image')
+                  ->withCustomProperties(['text' => $request->text])
+                  ->toMediaCollection('images');
 
-// Function to update the countdown
-function updateCountdown() {
-  const currentDate = new Date();
-  const timeDifference = targetDate - currentDate;
 
-  if (timeDifference <= 0) {
-    // If the target date has passed, display a message
-    document.getElementById('countdown').innerHTML = targetDate;
-    document.getElementById('countdown').style.color = 'red';
 
-  } else {
-    // Calculate days, hours, minutes, and seconds
-    const days = Math.floor(timeDifference / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((timeDifference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    // const minutes = Math.floor((timeDifference % (1000 * 60 * 60)) / (1000 * 60));
-    // const seconds = Math.floor((timeDifference % (1000 * 60)) / 1000);
-
-    // Display the countdown in a human-readable format
-    document.getElementById('countdown').innerHTML = `${days} days, ${hours} hours left`;
-  }
-}
-
-// Call the updateCountdown function every second
-setInterval(updateCountdown, 600000);
-
-// Initial call to set the initial countdown
-updateCountdown();
-</script>
+        <h2>{{ $image->getCustomProperty('text') }}</h2>

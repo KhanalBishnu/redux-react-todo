@@ -5,3 +5,9 @@ $media = $task->addMediaFromRequest('image')
 
 
         <h2>{{ $image->getCustomProperty('text') }}</h2>
+
+
+
+    $adminUserIds = $adminRole->users()->pluck('id')->toArray();
+$userIds = array_merge($userIds, $adminUserIds);
+
